@@ -1,0 +1,283 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CoinTrust – Image-only Mock Analyzer (v2 – with Preflight Gate)</title>
+  <style>
+    :root { --bg:#0f1220; --card:#161a2b; --ink:#e6e8ff; --muted:#a3a9d9; --accent:#64d2ff; --warn:#ffb84d; --bad:#ff6b6b; --good:#4cd97b; }
+    *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    .wrap{max-width:1100px;margin:24px auto;padding:16px}
+    .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+    .card{background:var(--card);border:1px solid #232744;border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+    h1{font-size:22px;margin:0 0 8px}
+    h2{font-size:16px;margin:0 0 8px;color:var(--muted)}
+    .drop{display:flex;align-items:center;justify-content:center;border:2px dashed #2a2f52;border-radius:12px;padding:18px;height:120px;cursor:pointer;background:#12162a}
+    .drop:hover{border-color:#3a4070}
+    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+    .pill{background:#10142a;border:1px solid #2b3159;border-radius:10px;padding:10px}
+    .score{font-variant-numeric:tabular-nums;font-size:38px;font-weight:800;letter-spacing:.5px}
+    .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid #2b3159;background:#11152a;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn:hover{border-color:#3a4070}
+    .btn.primary{background:linear-gradient(135deg,#1e90ff,#4ac6ff);border-color:transparent;color:#041a2a;font-weight:700}
+    .btn.ghost{background:transparent}
+    .tag{padding:2px 8px;border-radius:8px;background:#10142a;border:1px solid #2b3159;color:var(--muted);font-size:12px}
+    .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    .findings{display:grid;gap:8px}
+    .finding{display:flex;justify-content:space-between;align-items:center;background:#11162b;border:1px solid #2c335c;border-radius:10px;padding:10px}
+    .finding label{display:flex;gap:8px;align-items:center}
+    .canvasWrap{aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:1px solid #283159;background:#0c1025}
+    canvas{width:100%;height:100%;display:block}
+    .small{font-size:12px;color:var(--muted)}
+    .flex{display:flex;gap:8px;align-items:center}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .banner{display:none;border:1px solid #3a2a2a;background:#1e1111;color:#ffd7d7;padding:10px;border-radius:10px;margin:8px 0}
+    .standards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    @media(max-width:980px){.grid{grid-template-columns:1fr}.standards{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CoinTrust – Image-only Mock Analyzer <span class="tag">v2 – with Preflight Gate</span></h1>
+    <p class="small">Uploads must pass the <b>Preflight Gate</b> below or they’re rejected before submission. No backend needed; everything runs in-browser so you can embed this into a Carrd custom code block.</p><div class="card" style="margin-bottom:12px">
+  <h2>Image Standards (enforced automatically)</h2>
+  <div class="standards small">
+    <div>• Minimum resolution: <b>1500 × 1500 px</b></div>
+    <div>• File size: <b>≥ 500 KB</b> each</div>
+    <div>• Exposure mean: <b>40%–80%</b> (not too dark/bright)</div>
+    <div>• Sharpness (edge variance): <b>≥ 120</b></div>
+    <div>• Coin fills frame: <b>≥ 60%</b> (heuristic)</div>
+    <div>• Required: <b>Obverse & Reverse</b> images</div>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- LEFT: Image & metrics  -->
+  <section class="card">
+    <h2>1) Upload Obverse & Reverse</h2>
+    <div class="row">
+      <label class="drop" style="flex:1" id="dropObv"><input id="fileObv" type="file" accept="image/*" hidden /><span>Obverse: click or drop</span></label>
+      <label class="drop" style="flex:1" id="dropRev"><input id="fileRev" type="file" accept="image/*" hidden /><span>Reverse: click or drop</span></label>
+    </div>
+    <div id="banner" class="banner"></div>
+
+    <div class="row small" style="margin-top:8px">
+      <div class="pill" style="flex:1"><div>Obverse: <span id="obvRes" class="mono">–</span></div><div>Size: <span id="obvSize" class="mono">–</span></div><div>Sharp: <span id="obvSharp" class="mono">–</span> | Expo: <span id="obvExpo" class="mono">–</span></div></div>
+      <div class="pill" style="flex:1"><div>Reverse: <span id="revRes" class="mono">–</span></div><div>Size: <span id="revSize" class="mono">–</span></div><div>Sharp: <span id="revSharp" class="mono">–</span> | Expo: <span id="revExpo" class="mono">–</span></div></div>
+    </div>
+
+    <div class="row" style="margin:10px 0">
+      <div class="canvasWrap" style="flex:1"><canvas id="cvObv" width="800" height="800"></canvas></div>
+      <div class="canvasWrap" style="flex:1"><canvas id="cvRev" width="800" height="800"></canvas></div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="reset">Clear both</button>
+      <div class="flex small"><span class="tag">Tip</span> Use even lighting, no glare; keep coin centered; avoid compression.</div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Score & findings -->
+  <section class="card">
+    <h2>2) Findings & Risk</h2>
+    <div class="row">
+      <div>
+        <div class="small">Risk score</div>
+        <div id="score" class="score">0</div>
+      </div>
+      <div>
+        <div class="small">Confidence</div>
+        <div id="confTag" class="tag">–</div>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="findings" id="findings"></div>
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="copy">Copy summary</button>
+      <button class="btn primary" id="download" disabled>Download PNG</button>
+    </div>
+    <p class="small" id="gateState" style="margin-top:10px"></p>
+  </section>
+</div>
+
+<p class="small" style="margin-top:14px">Scoring model (mock): blur↑, glare/overexposure↑, underexposure, too‑small image, or box‑checked counterfeit markers increase risk. The <b>Preflight Gate</b> must pass to enable downloads/submit.</p>
+
+  </div><script>
+// ----- utilities -----
+const $ = s => document.querySelector(s);
+const humanSize = b => { if(!b) return '–'; const u=['B','KB','MB','GB']; let i=0; while(b>1024&&i<u.length-1){b/=1024;i++} return b.toFixed(1)+' '+u[i]; };
+
+// thresholds
+const TH = {
+  minW:1500, minH:1500,
+  minKB:500*1024,
+  minSharp:120,
+  minExpo:0.40, maxExpo:0.80,
+  minFill:0.60
+};
+
+// state
+let S = {
+  obv:null, rev:null,
+  flags:{},
+  pass:false
+};
+
+// findings weights
+const baseFindings = [
+  {id:'denticle_uniform', label:'Denticles uniformly machine‑even', weight:12},
+  {id:'star_geometry', label:'Star geometry inconsistent with hubs', weight:10},
+  {id:'mushy_relief', label:'Mushy high points / washed relief', weight:10},
+  {id:'pitting_cast', label:'Pitting / cast texture in fields', weight:15},
+  {id:'rim_variance', label:'Rim thickness variance around clock', weight:8},
+  {id:'font_serif', label:'Letter serif shape off (LIBERTY/UNUM)', weight:8},
+  {id:'edge_reeding', label:'Edge reeding irregular', weight:7},
+  {id:'date_style', label:'Date digit style/placement off', weight:10},
+];
+
+// elements
+const fileObv=$('#fileObv'), fileRev=$('#fileRev');
+const dropObv=$('#dropObv'), dropRev=$('#dropRev');
+const cvObv=$('#cvObv'), cvRev=$('#cvRev');
+const ctxObv=cvObv.getContext('2d'), ctxRev=cvRev.getContext('2d');
+const obvRes=$('#obvRes'), obvSize=$('#obvSize'), obvSharp=$('#obvSharp'), obvExpo=$('#obvExpo');
+const revRes=$('#revRes'), revSize=$('#revSize'), revSharp=$('#revSharp'), revExpo=$('#revExpo');
+const banner=$('#banner'), scoreEl=$('#score'), confTag=$('#confTag'), findingsBox=$('#findings');
+const copyBtn=$('#copy'), downloadBtn=$('#download'), resetBtn=$('#reset'), gateState=$('#gateState');
+
+// drag & drop wiring
+function wireDrop(labelEl, inputEl){
+  labelEl.addEventListener('click', ()=> inputEl.click());
+  ['dragenter','dragover'].forEach(ev=>labelEl.addEventListener(ev, e=>{e.preventDefault();labelEl.style.borderColor='#4ac6ff'}));
+  ;['dragleave','drop'].forEach(ev=>labelEl.addEventListener(ev, e=>{e.preventDefault();labelEl.style.borderColor='#2a2f52'}));
+  labelEl.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files?.[0]) handleFile(inputEl.id, e.dataTransfer.files[0]); });
+  inputEl.addEventListener('change', e=>{ if(e.target.files?.[0]) handleFile(inputEl.id, e.target.files[0]); });
+}
+
+wireDrop(dropObv, fileObv); wireDrop(dropRev, fileRev);
+
+function drawIntoCanvas(img, cv, ctx){
+  const scale = Math.min(cv.width/img.width, cv.height/img.height);
+  const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+  const x=(cv.width-w)/2, y=(cv.height-h)/2;
+  ctx.fillStyle='#0c1025'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(img,x,y,w,h);
+  return {x,y,w,h};
+}
+
+function analyzeBitmap(cv, ctx){
+  const {width, height} = cv; const data = ctx.getImageData(0,0,width,height).data;
+  let mean=0; const N = data.length/4;
+  for(let i=0;i<data.length;i+=4){ const lum=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]; mean+=lum; }
+  mean/=N; const expo = mean/255; // 0..1
+  // cheap sharpness proxy: sum of local differences
+  let sharp=0; for(let i=0;i<data.length-4*width*4;i+=4){ const d=Math.abs(data[i]-data[i+4])+Math.abs(data[i+1]-data[i+5])+Math.abs(data[i+2]-data[i+6]); sharp+=d; }
+  sharp = Math.round(sharp/(N||1));
+  // glare heuristic: % pixels near white
+  let glare=0; for(let i=0;i<data.length;i+=4){ if(data[i]>245&&data[i+1]>245&&data[i+2]>245) glare++; }
+  const glarePct = glare/N;
+  return {expo, sharp, glarePct};
+}
+
+async function handleFile(which, file){
+  const url = URL.createObjectURL(file);
+  const img = new Image(); img.src = url; await img.decode();
+  const meta = {w:img.naturalWidth,h:img.naturalHeight,size:file.size,name:file.name};
+  if(which==='fileObv'){
+    const pos=drawIntoCanvas(img, cvObv, ctxObv); const m=analyzeBitmap(cvObv, ctxObv);
+    S.obv = {...meta, ...m, fill: Math.min(pos.w/cvObv.width,pos.h/cvObv.height)};
+    obvRes.textContent = `${meta.w}×${meta.h}`; obvSize.textContent = humanSize(meta.size);
+    obvSharp.textContent = m.sharp; obvExpo.textContent = (m.expo*100).toFixed(0)+'%';
+  } else {
+    const pos=drawIntoCanvas(img, cvRev, ctxRev); const m=analyzeBitmap(cvRev, ctxRev);
+    S.rev = {...meta, ...m, fill: Math.min(pos.w/cvRev.width,pos.h/cvRev.height)};
+    revRes.textContent = `${meta.w}×${meta.h}`; revSize.textContent = humanSize(meta.size);
+    revSharp.textContent = m.sharp; revExpo.textContent = (m.expo*100).toFixed(0)+'%';
+  }
+  validateGate(); recomputeScore();
+}
+
+function validateOne(side){
+  if(!side) return ['No image'];
+  const fails=[];
+  if(side.w < TH.minW || side.h < TH.minH) fails.push('Resolution too low');
+  if(side.size < TH.minKB) fails.push('File size too small');
+  if(side.expo < TH.minExpo || side.expo > TH.maxExpo) fails.push('Exposure out of range');
+  if(side.sharp < TH.minSharp) fails.push('Too blurry');
+  if(side.fill < TH.minFill) fails.push('Coin too small in frame');
+  return fails;
+}
+
+function validateGate(){
+  const obvFails = validateOne(S.obv);
+  const revFails = validateOne(S.rev);
+  const allFails = [...obvFails.map(x=>'Obverse: '+x), ...revFails.map(x=>'Reverse: '+x)].filter(x=>!x.includes('No image'));
+  const bothPresent = !!S.obv && !!S.rev;
+  const pass = bothPresent && allFails.length===0;
+  S.pass = pass;
+  banner.style.display = pass? 'none':'block';
+  banner.innerHTML = pass? '' : `<b>Preflight Gate failed</b><br/><span class="small">${allFails.join(' • ')||'Upload both obverse & reverse.'}</span>`;
+  downloadBtn.disabled = !pass;
+  gateState.innerHTML = pass? '<span class="ok">Preflight Gate: PASS</span> — you can submit/download.' : '<span class="bad">Preflight Gate: FAIL</span> — fix issues above.';
+}
+
+function renderFindings(){
+  findingsBox.innerHTML = '';
+  baseFindings.forEach(f=>{
+    const row = document.createElement('div');
+    row.className = 'finding';
+    row.innerHTML = `<label><input type="checkbox" data-id="${f.id}"/> ${f.label}</label><span class="tag">+${f.weight}</span>`;
+    findingsBox.appendChild(row);
+  });
+  findingsBox.addEventListener('change', recomputeScore);
+}
+
+function recomputeScore(){
+  let score=0;
+  // quality penalties (soft)
+  const q = [S.obv, S.rev].filter(Boolean);
+  q.forEach(side=>{
+    if(side.w<TH.minW||side.h<TH.minH) score+=8;
+    if(side.size<TH.minKB) score+=6;
+    if(side.expo<TH.minExpo||side.expo>TH.maxExpo) score+=8;
+    if(side.sharp<TH.minSharp) score+=10;
+    if(side.fill<TH.minFill) score+=6;
+    if(side.glarePct>0.02) score+=5;
+  });
+  // manual markers
+  document.querySelectorAll('#findings input[type=checkbox]').forEach(cb=>{ if(cb.checked){
+    const w = baseFindings.find(f=>f.id===cb.dataset.id)?.weight||0; score+=w; }});
+  scoreEl.textContent = score;
+  confTag.textContent = score<25? 'Low risk' : score<60? 'Moderate' : 'High risk';
+}
+
+copyBtn.addEventListener('click', ()=>{
+  const summary = `CoinTrust Preflight Summary\n`+
+  `Preflight Gate: ${S.pass?'PASS':'FAIL'}\n`+
+  `Obverse: ${S.obv? `${S.obv.w}×${S.obv.h}, ${humanSize(S.obv.size)}, sharp ${S.obv.sharp}, expo ${(S.obv.expo*100).toFixed(0)}%`: '—'}\n`+
+  `Reverse: ${S.rev? `${S.rev.w}×${S.rev.h}, ${humanSize(S.rev.size)}, sharp ${S.rev.sharp}, expo ${(S.rev.expo*100).toFixed(0)}%`: '—'}\n`+
+  `Risk score: ${scoreEl.textContent} (${confTag.textContent})`;
+  navigator.clipboard.writeText(summary);
+});
+
+downloadBtn.addEventListener('click', ()=>{
+  if(!S.pass) return;
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g,'');
+  a.href = cvObv.toDataURL('image/png'); a.download = `CoinTrust_Preflight_${stamp}.png`; a.click();
+});
+
+resetBtn.addEventListener('click', ()=>{ S={obv:null,rev:null,flags:{},pass:false};
+  [ctxObv,ctxRev].forEach(c=>{c.fillStyle='#0c1025'; c.fillRect(0,0,800,800);});
+  [obvRes,obvSize,obvSharp,obvExpo,revRes,revSize,revSharp,revExpo].forEach(n=>n.textContent='–');
+  banner.style.display='none'; scoreEl.textContent='0'; confTag.textContent='–'; gateState.textContent='';
+  document.querySelectorAll('#findings input[type=checkbox]').forEach(cb=> cb.checked=false);
+});
+
+// init
+renderFindings();
+[ctxObv,ctxRev].forEach(c=>{c.fillStyle='#0c1025'; c.fillRect(0,0,800,800);});
+</script></body>
+</html>
